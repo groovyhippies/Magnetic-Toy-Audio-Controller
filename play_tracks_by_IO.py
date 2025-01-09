@@ -108,10 +108,11 @@ def gpio_callback(channel):
 
     if not playing and pin_state == GPIO.LOW:
         play_all_tracks_muted()  # Start tracks if not already started
-        timer_start = time.time()  # Start the playback timer
 
     if pin_state == GPIO.LOW:
-        # Falling edge: Unmute the corresponding track
+        # Falling edge: Unmute the corresponding track and reset the timer
+        timer_start=time.time() #reset the timer when a new toy is inserted
+        print("timer reset!")
         unmute_track(pin_index)
     elif pin_state == GPIO.HIGH:
         # Rising edge: Mute the corresponding track
