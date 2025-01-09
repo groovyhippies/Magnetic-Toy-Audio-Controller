@@ -30,24 +30,39 @@ tracks = [
     pygame.mixer.Sound("wav_files/track6.wav"),
 ]
 
+bg_tracks = [
+    pygame.mixer.Sound("wav_files/track0a.wav"),
+    pygame.mixer.Sound("wav_files/track0b.wav"),
+]
+
 # Initialize states
 channels = [None] * len(tracks)  # Store channel objects
+bg_channels = [None] * len(bg_tracks)  # Store channel objects
+
 timer_start = None  # Timer for playback
 playing = False  # Flag to indicate if tracks are currently playing
-
 
 def play_all_tracks_muted():
     """
     Start all tracks in muted mode.
     """
-    global channels, playing
+    global channels, playing, bg_channels
     print("\r\n**********************************************************\r\n")
     print("The 1st toy has been inserted! Audio system is starting...")
     print("\r\n**********************************************************\r\n")
     print("Initializing audio playback...")
+
+    for i, track in enumerate(bg_tracks):
+        if bg_channels[i] is None:  # Only start if not already playing
+            channel = track.play(loops=SHOULD_LOOP)  # Play in loop
+            if channel is not None:
+                channel.set_volume(1)  #Play with volumn
+                bg_channels[i] = channel
+    print("Background tracks are now playing")
+
     for i, track in enumerate(tracks):
         if channels[i] is None:  # Only start if not already playing
-            channel = track.play(loops=SHOULD_LOOP)  # Play once (no loop)
+            channel = track.play(loops=SHOULD_LOOP)  # Play in loop
             if channel is not None:
                 channel.set_volume(0)  # Start muted
                 channels[i] = channel
@@ -91,6 +106,12 @@ def stop_all_tracks():
         if channel is not None:
             channel.stop()
             channels[i] = None
+
+    for i, channel in enumerate(bg_channels):
+        if channel is not None:
+            channel.stop()
+            bg_channels[i] = None
+
     timer_start = None
     playing = False
 
