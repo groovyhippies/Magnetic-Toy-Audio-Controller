@@ -1,6 +1,7 @@
 import pygame
 import RPi.GPIO as GPIO
 import time
+import mcp3008
 
 # Macro-like constant for playback duration
 PLAYBACK_DURATION = 120  # Time in seconds
@@ -39,8 +40,37 @@ bg_tracks = [
 channels = [None] * len(tracks)  # Store channel objects
 bg_channels = [None] * len(bg_tracks)  # Store channel objects
 
+adc = mcp3008.MCP3008()  # Initialize MCP3008 ADC
+
 timer_start = None  # Timer for playback
 playing = False  # Flag to indicate if tracks are currently playing
+
+
+def get_adc_value():
+    """
+    Read the ADC value and return it.
+    """
+    try:
+        value = adc.read([mcp3008.CH0])[0]  # Read raw data from CH0
+        return value
+    except Exception as e:
+        print(f"Error reading ADC: {e}")
+        return 512  # Default midpoint value on error
+
+
+def adjust_bg_volumes():
+    """
+    Adjust the volumes of the two background tracks based on ADC value.
+    """
+    adc_value = get_adc_value()
+    volume_a = adc_value / 1024  # Scale to range 0.0 to 1.0
+    volume_b = 1.0 - volume_a  # Complementary volume
+
+    if bg_channels[0] is not None:
+        bg_channels[0].set_volume(volume_a)
+    if bg_channels[1] is not None:
+        bg_channels[1].set_volume(volume_b)
+
 
 def play_all_tracks_muted():
     """
@@ -56,8 +86,10 @@ def play_all_tracks_muted():
         if bg_channels[i] is None:  # Only start if not already playing
             channel = track.play(loops=SHOULD_LOOP)  # Play in loop
             if channel is not None:
-                channel.set_volume(1)  #Play with volumn
                 bg_channels[i] = channel
+
+    # Adjust volumes before playback
+    adjust_bg_volumes()
     print("Background tracks are now playing")
 
     for i, track in enumerate(tracks):
@@ -132,8 +164,8 @@ def gpio_callback(channel):
 
     if pin_state == GPIO.LOW:
         # Falling edge: Unmute the corresponding track and reset the timer
-        timer_start=time.time() #reset the timer when a new toy is inserted
-        print("timer reset!")
+        timer_start = time.time()  # Reset the timer when a new toy is inserted
+        print("Timer reset!")
         unmute_track(pin_index)
     elif pin_state == GPIO.HIGH:
         # Rising edge: Mute the corresponding track
@@ -144,8 +176,7 @@ def gpio_callback(channel):
 for pin in input_pins:
     GPIO.add_event_detect(pin, GPIO.BOTH, callback=gpio_callback, bouncetime=300)
 
-
-# Main loop to manage the playback timer
+# Main loop to manage the playback timer and adjust volumes
 try:
     print("Waiting for GPIO events...")
     while True:
@@ -153,10 +184,16 @@ try:
             elapsed_time = time.time() - timer_start
             if elapsed_time >= PLAYBACK_DURATION:
                 stop_all_tracks()  # Stop all tracks after the configured duration
+
+        # Continuously adjust background track volumes
+        if playing:
+            adjust_bg_volumes()
+
         time.sleep(0.1)  # Small delay to avoid high CPU usage
 except KeyboardInterrupt:
     print("\nProgram interrupted by user.")
 finally:
     GPIO.cleanup()
     pygame.mixer.quit()
+    adc.close()
     print("GPIO cleaned up and mixer closed.")
