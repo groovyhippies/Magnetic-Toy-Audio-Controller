@@ -82,6 +82,13 @@ def play_all_tracks_muted():
     print("\r\n**********************************************************\r\n")
     print("Initializing audio playback...")
 
+    initial_adc_value = get_adc_value()
+    volume_a = initial_adc_value / 1024  # Scale to range 0.0 to 1.0
+    volume_b = 1.0 - volume_a  # Complementary volume
+
+    print(f"Initial ADC Value: {initial_adc_value}")
+    print(f"Initial Volumes -> Track0a: {volume_a}, Track0b: {volume_b}")
+
     for i, track in enumerate(bg_tracks):
         if bg_channels[i] is None:  # Only start if not already playing
             channel = track.play(loops=SHOULD_LOOP)  # Play in loop
