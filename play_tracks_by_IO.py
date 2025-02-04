@@ -19,7 +19,7 @@ for pin in input_pins:
     GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Initialize Pygame Mixer
-pygame.mixer.init(frequency=22050, size=-8, channels=2, buffer=4096)  # Default settings for Pygame mixer
+pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=4096)  # Default settings for Pygame mixer
 
 # Load tracks
 tracks = [
