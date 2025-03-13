@@ -2,6 +2,14 @@ import pygame
 import RPi.GPIO as GPIO
 import time
 import mcp3008
+import subprocess
+
+# Define constants for easy ADc's modification
+V_REF = 5.0         # ADC reference voltage
+V_SENSOR_MAX = 4.7  # Maximum output voltage of the sensor
+ADC_MAX = 1024      # Full-scale ADC value
+# Calculate the ADC value corresponding to the sensor's max output
+ADC_SENSOR_MAX = (V_SENSOR_MAX / V_REF) * ADC_MAX
 
 # Macro-like constant for playback duration
 PLAYBACK_DURATION = 120  # Time in seconds
@@ -12,14 +20,23 @@ SHOULD_LOOP = -1
 
 # GPIO pin setup
 GPIO.setmode(GPIO.BCM)
-input_pins = [0, 1, 2, 3, 4, 5]  # GPIO0 to GPIO5
+#input_pins = [0, 1, 2, 3, 4, 5]  # GPIO0 to GPIO5
+input_pins = [0, 5, 6, 13, 19, 26]
 
 # Set up GPIO pins as input with pull-up resistors
 for pin in input_pins:
     GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # Initialize Pygame Mixer
-pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=4096)  # Default settings for Pygame mixer
+# Keep retrying pygame.mixer.init() until it succeeds
+while True:
+    try:
+        pygame.mixer.init(frequency=48000, size=-16, channels=2, buffer=1024)
+        print("Audio initialized successfully!", flush=True)
+        break  # Exit loop if successful
+    except pygame.error as e:
+        print(f"Pygame audio init failed: {e}. Retrying in 2 seconds...", flush=True)
+        time.sleep(2)  # Wait before retrying
 
 # Load tracks
 tracks = [
@@ -63,7 +80,9 @@ def adjust_bg_volumes():
     Adjust the volumes of the two background tracks based on ADC value.
     """
     adc_value = get_adc_value()
-    volume_a = adc_value / 1024  # Scale to range 0.0 to 1.0
+    #volume_a = adc_value / 1024  # Scale to range 0.0 to 1.0
+    volume_a = adc_value / ADC_SENSOR_MAX  # Normalize 0.0 to 1.0
+    volume_a = min(volume_a, 1.0)  # Ensure it does not exceed 1.0
     volume_b = 1.0 - volume_a  # Complementary volume
 
     if bg_channels[0] is not None:
@@ -177,6 +196,18 @@ def gpio_callback(channel):
     elif pin_state == GPIO.HIGH:
         # Rising edge: Mute the corresponding track
         mute_track(pin_index)
+
+# Notify the user that the program has finished its init process
+
+# Command to play the audio file
+command = ["aplay", "-D", "default", "/usr/share/sounds/alsa/Front_Center.wav"]
+
+# Execute the command
+result = subprocess.run(command, capture_output=True, text=True)
+
+# Print any output or error messages
+print("Output:", result.stdout)
+print("Error:", result.stderr)
 
 
 # Add event detection for GPIO pins
